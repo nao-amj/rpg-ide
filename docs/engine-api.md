@@ -1,111 +1,187 @@
-# RPGエンジン API リファレンス
+# RPGエンジンAPI
 
-このドキュメントでは、RPG開発環境で使用できるRPGエンジンのAPIについて説明します。このAPIを使用することで、ゲームの動作やロジックをカスタマイズできます。
+## 概要
+
+RPGゲームエンジンは、RPGゲームの開発に必要な機能を提供するJavaScript APIです。このドキュメントでは、エンジンの主要なコンポーネントとその使用方法について説明します。
 
 ## 目次
 
-1. [RPGエンジンの初期化](#rpgエンジンの初期化)
-2. [ゲームループの制御](#ゲームループの制御)
-3. [ゲーム状態の管理](#ゲーム状態の管理)
-4. [マップの操作](#マップの操作)
-5. [キャラクターの操作](#キャラクターの操作)
+1. [エンジン初期化](#エンジン初期化)
+2. [ゲームループと更新](#ゲームループと更新)
+3. [レンダリングシステム](#レンダリングシステム)
+4. [入力システム](#入力システム)
+5. [物理システム](#物理システム)
 6. [バトルシステム](#バトルシステム)
 7. [ダイアログシステム](#ダイアログシステム)
 8. [インベントリシステム](#インベントリシステム)
-9. [セーブ＆ロード](#セーブロード)
+9. [クエストシステム](#クエストシステム)
+10. [セーブシステム](#セーブシステム)
 
-## RPGエンジンの初期化
+## エンジン初期化
 
-RPGエンジンを使用するには、まず初期化する必要があります。
+エンジンはゲームの開始時に初期化する必要があります。
 
 ```javascript
-// RPGエンジンのインスタンスを作成
+// エンジンのインスタンス化
 const engine = new RPGEngine();
 
-// エンジンを初期化
+// エンジンの初期化
 engine.initialize({
     // レンダリング設定
     rendering: {
         canvas: document.getElementById('game-canvas'),
         tileSize: 32
     },
+    
+    // 入力設定
+    input: {
+        keyboard: true,
+        touch: false,
+        gamepad: false
+    },
+    
     // 物理設定
     physics: {
-        collision: 'grid',
-        gravity: 0
+        collision: 'grid', // 'grid' または 'aabb'
+        gravity: 0,
+        friction: 0.1
     },
+    
     // バトル設定
     battle: {
-        type: 'turn-based',
-        encounterRate: 0.1
+        type: 'turn-based', // 'turn-based', 'active-time', 'real-time'
+        encounterRate: 0.05,  // エンカウント率
+        escapeRate: 0.5       // 逃走成功率
     },
+    
+    // ダイアログ設定
+    dialogue: {
+        container: document.getElementById('dialog-container'),
+        speed: 30 // テキスト表示速度
+    },
+    
+    // インベントリ設定
+    inventory: {
+        maxItems: 20,
+        categories: ['item', 'weapon', 'armor', 'key']
+    },
+    
+    // クエスト設定
+    quest: {
+        quests: [] // 初期クエスト
+    },
+    
+    // セーブ設定
+    save: {
+        storage: 'localStorage', // 'localStorage' または 'indexedDB'
+        slots: 3,
+        prefix: 'rpg_save_'
+    },
+    
     // 初期ゲーム状態
     initialState: {
         player: {
             name: 'Hero',
+            level: 1,
+            exp: 0,
             hp: 100,
+            maxHP: 100,
             mp: 50,
-            x: 5,
-            y: 5,
+            maxMP: 50,
+            strength: 10,
+            defense: 5,
+            speed: 5,
+            x: 100,
+            y: 100,
             width: 32,
-            height: 32
-        }
+            height: 32,
+            items: []
+        },
+        playerTeam: [], // パーティメンバー
+        currentMap: null, // 初期マップは別途読み込み
+        characters: [], // NPCなど
+        items: [], // フィールド上のアイテム
+        events: [], // ゲームイベント
+        flags: {} // ゲーム進行フラグ
     }
 });
+
+// ゲームループの開始
+engine.startGameLoop();
 ```
 
-## ゲームループの制御
+## ゲームループと更新
 
-ゲームを開始するには、ゲームループを開始します。
+ゲームループは `startGameLoop()` メソッドで開始され、内部的に以下のメソッドを呼び出します：
 
 ```javascript
-// ゲームループを開始
+// ゲームループ開始（自動的に実行）
 engine.startGameLoop();
 
-// ゲームループの内部で行われる処理（参照用）
-function gameLoop(timestamp) {
-    // ゲーム状態の更新
-    engine.update(deltaTime);
-    
-    // 画面の描画
-    engine.render();
-    
-    // 次のフレームを要求
-    requestAnimationFrame(gameLoop);
-}
+// ゲーム状態の更新（内部使用）
+engine.update(deltaTime);
+
+// プレイヤーの更新（内部使用）
+engine.updatePlayer(deltaTime);
+
+// NPCの更新（内部使用）
+engine.updateCharacters(deltaTime);
+
+// イベントの更新（内部使用）
+engine.updateEvents(deltaTime);
+
+// 物理・衝突判定の更新（内部使用）
+engine.updatePhysics(deltaTime);
+
+// ランダムエンカウントのチェック（内部使用）
+engine.checkRandomEncounter(deltaTime);
 ```
 
-## ゲーム状態の管理
+## レンダリングシステム
 
-ゲーム状態は `engine.gameState` オブジェクトで管理されます。
+ゲームの描画を処理します。
 
 ```javascript
-// プレイヤー情報の取得
-const player = engine.gameState.player;
+// ゲームの描画（内部使用）
+engine.render();
 
-// フラグの設定
-engine.gameState.flags.doorOpened = true;
+// マップの描画（内部使用）
+engine.renderMap();
 
-// フラグの確認
-if (engine.gameState.flags.talkedToVillager) {
-    // 村人と会話済みの場合の処理
-}
+// キャラクターの描画（内部使用）
+engine.renderCharacters();
+
+// プレイヤーの描画（内部使用）
+engine.renderPlayer();
+
+// UIの描画（内部使用）
+engine.renderUI();
+
+// バトル画面の描画（内部使用）
+engine.renderBattle();
+
+// バトルUIの描画（内部使用）
+engine.renderBattleUI();
 ```
 
-## マップの操作
+## マップ操作
 
-マップの読み込みや操作を行います。
+ゲームマップの読み込みと管理を行います。
 
 ```javascript
-// マップデータの例
+// マップの読み込み
+engine.loadMap(mapData);
+
+// マップデータの形式
 const mapData = {
-    id: 'town_map',
-    name: '街マップ',
-    width: 20,
-    height: 15,
-    tileSize: 32,
+    id: 'town_map',      // マップID
+    name: '街マップ',      // マップ名
+    width: 20,          // マップ幅（タイル単位）
+    height: 15,         // マップ高さ（タイル単位）
+    tileSize: 32,       // タイルサイズ（ピクセル）
+    // レイヤー（複数レイヤー対応）
     layers: [
-        // 背景レイヤー
+        // 地形レイヤー
         [
             [1, 1, 1, 1, ...],
             [1, 1, 1, 1, ...],
@@ -113,295 +189,484 @@ const mapData = {
         ],
         // オブジェクトレイヤー
         [
-            [0, 0, 0, 0, ...],
-            [0, 2, 0, 0, ...],
+            [0, 0, 0, 2, ...],
+            [0, 0, 2, 0, ...],
             // ...
         ]
     ],
+    // 衝突判定マップ（0=通行可能、1=通行不可）
     collision: [
         [0, 0, 0, 1, ...],
-        [0, 1, 0, 1, ...],
+        [0, 0, 1, 0, ...],
         // ...
     ],
-    events: [
-        {
-            id: 'door_event',
-            x: 5,
-            y: 7,
-            condition: (gameState) => !gameState.flags.doorOpened,
-            action: (gameState) => {
-                gameState.flags.doorOpened = true;
-                // ドアを開く処理
-            },
-            once: true
-        }
-    ],
+    // ランダムエンカウント設定
     randomEncounters: [
         {
-            rate: 0.1, // 10%の確率でエンカウント
-            enemies: [
-                { name: 'スライム', hp: 20, strength: 5, defense: 2, expReward: 10 },
-                { name: 'ゴブリン', hp: 30, strength: 8, defense: 3, expReward: 15 }
-            ]
+            enemies: [/* 敵キャラクター配列 */],
+            rate: 0.05 // エンカウント率
+        }
+    ],
+    // マップイベント
+    events: [
+        {
+            id: 'event1',
+            condition: function(gameState) {
+                // 発動条件
+                return true;
+            },
+            action: function(gameState) {
+                // 実行内容
+            },
+            once: true // 一度きりのイベントか
         }
     ]
 };
-
-// マップの読み込み
-engine.loadMap(mapData);
-
-// カメラの位置設定
-engine.systems.rendering.camera.x = 100;
-engine.systems.rendering.camera.y = 50;
-```
-
-## キャラクターの操作
-
-プレイヤーやNPCなどのキャラクターを操作します。
-
-```javascript
-// NPCの追加
-const npc = {
-    name: '村人',
-    x: 200,
-    y: 150,
-    width: 32,
-    height: 32,
-    color: '#ff0000',
-    onInteract: function(gameState) {
-        engine.showDialog({
-            speaker: '村人',
-            text: 'こんにちは、冒険者さん！'
-        });
-        gameState.flags.talkedToVillager = true;
-    }
-};
-
-engine.gameState.characters.push(npc);
-
-// プレイヤーの移動（手動制御の場合）
-engine.gameState.player.x += 5;
-engine.gameState.player.y -= 10;
-
-// プレイヤーのステータス変更
-engine.gameState.player.hp = Math.min(engine.gameState.player.maxHP, engine.gameState.player.hp + 20);
 ```
 
 ## バトルシステム
 
-バトルの開始や操作を行います。
+ターンベースのバトルシステムを提供します。
 
 ```javascript
-// バトルの開始
-const enemies = [
-    { 
-        name: 'ドラゴン', 
-        hp: 100, 
-        maxHP: 100,
-        strength: 15, 
-        defense: 10,
-        speed: 5,
-        expReward: 50,
-        goldReward: 100,
-        dropItems: [
-            { item: { id: 'dragon_scale', name: 'ドラゴンの鱗' }, rate: 0.3 }
-        ]
+// バトル開始
+engine.startBattle(enemies, options);
+
+// 例：バトル開始
+engine.startBattle(
+    [
+        {
+            name: 'ゴブリン',
+            hp: 50,
+            maxHP: 50,
+            strength: 8,
+            defense: 3,
+            speed: 5,
+            expReward: 20,
+            goldReward: 10,
+            dropItems: [
+                { item: { name: '回復薬', type: 'item' }, rate: 0.3 }
+            ]
+        }
+    ],
+    {
+        type: 'normal', // 'normal', 'boss', 'event'
+        escapeRate: 0.5, // 逃走成功率
+        background: 'forest' // 背景
     }
-];
+);
 
-engine.startBattle(enemies, { 
-    background: 'cave',
-    canEscape: true 
-});
+// プレイヤーの行動を処理
+engine.systems.battle.handlePlayerAction(character, action, target);
 
-// バトルイベントのリスニング
+// 利用可能なアクションの取得
+const actions = engine.systems.battle.getAvailableActions(character);
+```
+
+### バトルイベント
+
+バトルシステムは以下のイベントを発火します：
+
+```javascript
+// バトル開始イベント
 document.addEventListener('battle-start', (e) => {
-    console.log('バトルが開始されました', e.detail);
+    console.log('バトル開始:', e.detail);
+    // e.detail: { playerTeam: [...], enemyTeam: [...] }
 });
 
+// バトル行動選択イベント
+document.addEventListener('battle-action-menu', (e) => {
+    console.log('行動選択:', e.detail);
+    // e.detail: { character, availableActions }
+});
+
+// バトル行動実行イベント
+document.addEventListener('battle-action-executed', (e) => {
+    console.log('行動実行:', e.detail);
+    // e.detail: { actor, action, target, result }
+});
+
+// バトル終了イベント
 document.addEventListener('battle-end', (e) => {
+    console.log('バトル終了:', e.detail);
+    // e.detail: { result, rewards, battleLog }
+    
     if (e.detail.result === 'player') {
-        console.log('勝利！獲得報酬:', e.detail.rewards);
+        // プレイヤー勝利時の処理
     }
 });
-
-// プレイヤーの行動を処理（UIからの入力）
-function handlePlayerAction(character, action, target) {
-    engine.systems.battle.handlePlayerAction(character, action, target);
-}
 ```
 
 ## ダイアログシステム
 
-会話やメッセージの表示を制御します。
+ゲーム内の会話や通知を表示します。
 
 ```javascript
-// ダイアログの表示
+// ダイアログを表示
 engine.showDialog({
-    speaker: '老人',
-    text: '昔々、この村には伝説の剣が祀られていたという...'
+    speaker: 'NPC', // 話者名（省略可）
+    text: 'こんにちは、冒険者さん！',
+    portrait: 'npc_face', // キャラクター画像（省略可）
+    position: 'bottom', // 'top', 'bottom', 'middle'（省略可）
+    onComplete: function() {
+        // ダイアログ表示完了時の処理
+    }
 });
 
 // ダイアログを閉じる
 engine.closeDialog();
+```
 
-// 選択肢付きダイアログ（カスタム実装例）
-function showChoiceDialog(text, choices) {
-    engine.showDialog({
-        text: text,
-        choices: choices
-    });
-    
-    // 選択肢UIの表示（独自実装が必要）
-    renderChoiceUI(choices);
+## 入力システム
+
+キーボードやタッチ入力を処理します。
+
+```javascript
+// キー入力の取得
+if (engine.systems.input.keys['ArrowUp']) {
+    // 上キーが押されている
 }
 
-showChoiceDialog('どうしますか？', [
-    { text: '話を聞く', action: () => { /* 処理 */ } },
-    { text: '断る', action: () => { /* 処理 */ } }
-]);
+// 入力コールバックの登録
+engine.systems.input.callbacks['Space'] = function(isPressed) {
+    if (isPressed) {
+        // スペースキーが押された時の処理
+    } else {
+        // スペースキーが離された時の処理
+    }
+};
+```
+
+## 物理システム
+
+衝突判定と物理演算を処理します。
+
+```javascript
+// エンティティ同士の衝突判定
+const isColliding = engine.checkEntityCollision(entityA, entityB);
+
+// マップとの衝突判定
+engine.checkMapCollision(entity);
 ```
 
 ## インベントリシステム
 
-アイテムの管理を行います。
+プレイヤーのインベントリとアイテム管理を行います。
 
 ```javascript
-// アイテムの追加
-const potion = {
-    id: 'potion',
-    name: 'ポーション',
-    type: 'item',
-    effect: (target) => {
-        target.hp = Math.min(target.maxHP, target.hp + 50);
-        return `${target.name}のHPが50回復した！`;
+// インベントリにアイテムを追加
+function addItemToInventory(item) {
+    const inventory = engine.gameState.player.items;
+    
+    if (inventory.length < engine.systems.inventory.maxItems) {
+        inventory.push(item);
+        return true;
     }
-};
+    
+    return false; // インベントリがいっぱい
+}
 
-// プレイヤーのインベントリにアイテムを追加
-engine.gameState.player.items.push(potion);
-
-// アイテムの使用
-function useItem(itemId, target) {
-    const itemIndex = engine.gameState.player.items.findIndex(item => item.id === itemId);
-    if (itemIndex !== -1) {
-        const item = engine.gameState.player.items[itemIndex];
-        const message = item.effect(target);
-        
-        // 消費アイテムの場合は削除
-        if (item.consumable) {
-            engine.gameState.player.items.splice(itemIndex, 1);
-        }
-        
-        return message;
+// アイテムを使用
+function useItem(itemIndex) {
+    const inventory = engine.gameState.player.items;
+    const item = inventory[itemIndex];
+    
+    if (!item) return false;
+    
+    // アイテムタイプ別の処理
+    switch (item.type) {
+        case 'heal':
+            // 回復処理
+            engine.gameState.player.hp = Math.min(
+                engine.gameState.player.hp + item.value,
+                engine.gameState.player.maxHP
+            );
+            break;
+        // その他のアイテムタイプ
     }
-    return null;
+    
+    // 消費アイテムならインベントリから削除
+    if (item.consumable !== false) {
+        inventory.splice(itemIndex, 1);
+    }
+    
+    return true;
 }
 ```
 
-## セーブ＆ロード
+## セーブシステム
 
-ゲームのセーブとロードを行います。
+ゲームの保存と読み込みを処理します。
 
 ```javascript
-// ゲームのセーブ
-const saveSuccess = engine.saveGame(1); // スロット1に保存
+// ゲームの保存
+engine.saveGame(slotId);
 
-if (saveSuccess) {
-    console.log('ゲームが正常に保存されました');
-} else {
-    console.error('ゲームの保存に失敗しました');
-}
+// ゲームの読み込み
+engine.loadGame(slotId);
 
-// ゲームのロード
-const loadSuccess = engine.loadGame(1); // スロット1からロード
-
-if (loadSuccess) {
-    console.log('ゲームが正常にロードされました');
-} else {
-    console.error('ゲームのロードに失敗しました');
+// セーブデータの例
+{
+    player: {
+        name: 'Hero',
+        level: 5,
+        exp: 250,
+        hp: 120,
+        maxHP: 120,
+        mp: 35,
+        maxMP: 50,
+        strength: 15,
+        defense: 8,
+        items: [/* アイテム配列 */]
+    },
+    playerTeam: [/* パーティメンバー配列 */],
+    currentMap: {
+        id: 'forest_map',
+        name: '森のマップ'
+    },
+    flags: {
+        metVillageElder: true,
+        defeatedFirstBoss: true,
+        // その他のゲームフラグ
+    },
+    timestamp: 1619123456789 // 保存日時
 }
 ```
 
-## カスタムシステムの追加
+## イベントシステム
 
-RPGエンジンは拡張可能な設計になっています。独自のシステムを追加することも可能です。
+ゲーム内イベントの処理を行います。
 
 ```javascript
-// カスタムクエストシステムの例
-class QuestSystem {
-    constructor(engine) {
-        this.engine = engine;
-        this.quests = [];
-        this.activeQuests = [];
-        this.completedQuests = [];
-    }
-    
-    addQuest(quest) {
-        this.quests.push(quest);
-    }
-    
-    startQuest(questId) {
-        const quest = this.quests.find(q => q.id === questId);
-        if (quest && !this.activeQuests.includes(quest)) {
-            this.activeQuests.push(quest);
-            return true;
-        }
-        return false;
-    }
-    
-    completeQuest(questId) {
-        const questIndex = this.activeQuests.findIndex(q => q.id === questId);
-        if (questIndex !== -1) {
-            const quest = this.activeQuests[questIndex];
-            this.activeQuests.splice(questIndex, 1);
-            this.completedQuests.push(quest);
-            
-            // 報酬の付与
-            if (quest.rewards) {
-                // 経験値
-                if (quest.rewards.exp) {
-                    this.engine.gameState.player.exp += quest.rewards.exp;
-                }
-                
-                // ゴールド
-                if (quest.rewards.gold) {
-                    this.engine.gameState.player.gold += quest.rewards.gold;
-                }
-                
-                // アイテム
-                if (quest.rewards.items) {
-                    for (const item of quest.rewards.items) {
-                        this.engine.gameState.player.items.push(item);
+// イベントの追加
+engine.gameState.events.push({
+    id: 'treasure_chest',
+    condition: function(gameState) {
+        // プレイヤーが宝箱の位置に近づいた＆まだ開けていない
+        const dx = Math.abs(gameState.player.x - 500);
+        const dy = Math.abs(gameState.player.y - 300);
+        return dx < 50 && dy < 50 && !gameState.flags.treasureOpened;
+    },
+    action: function(gameState) {
+        engine.showDialog({
+            text: '宝箱を見つけた！開けますか？',
+            choices: [
+                {
+                    text: 'はい',
+                    action: function() {
+                        engine.showDialog({
+                            text: '金貨を50枚手に入れた！'
+                        });
+                        gameState.player.gold += 50;
+                        gameState.flags.treasureOpened = true;
+                    }
+                },
+                {
+                    text: 'いいえ',
+                    action: function() {
+                        engine.showDialog({
+                            text: '宝箱はそのままにしておいた。'
+                        });
                     }
                 }
-            }
-            
-            return true;
-        }
-        return false;
-    }
-}
-
-// カスタムシステムをエンジンに追加
-engine.systems.quest = new QuestSystem(engine);
-
-// クエストの追加と開始
-engine.systems.quest.addQuest({
-    id: 'village_help',
-    name: '村の手伝い',
-    description: '村長の依頼でゴブリンを退治する',
-    objectives: [
-        { id: 'defeat_goblins', description: 'ゴブリンを5体倒す', count: 0, target: 5 }
-    ],
-    rewards: {
-        exp: 100,
-        gold: 50,
-        items: [{ id: 'healing_potion', name: '回復薬', type: 'item' }]
-    }
+            ]
+        });
+    },
+    once: false // プレイヤーが「いいえ」を選んだ場合、再度トリガーできるようにする
 });
-
-engine.systems.quest.startQuest('village_help');
 ```
 
-このAPIリファレンスを参考に、独自のRPGゲームを開発してください。RPGエンジンのAPIは柔軟に拡張でき、様々なタイプのRPGゲームを作成できます。
+## ユーティリティ関数
+
+便利な補助関数も用意されています。
+
+```javascript
+// 二点間の距離を計算
+function distance(x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+// 乱数生成（min以上max未満）
+function random(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+// 整数の乱数生成（min以上max以下）
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// 確率チェック
+function chance(probability) {
+    return Math.random() < probability;
+}
+
+// 角度計算（ラジアン）
+function angle(x1, y1, x2, y2) {
+    return Math.atan2(y2 - y1, x2 - x1);
+}
+
+// 指定方向への移動計算
+function moveInDirection(entity, angle, speed) {
+    entity.x += Math.cos(angle) * speed;
+    entity.y += Math.sin(angle) * speed;
+}
+```
+
+## ゲームオブジェクトの構造
+
+### プレイヤー
+
+```javascript
+const player = {
+    name: 'Hero',
+    level: 1,
+    exp: 0,
+    hp: 100,
+    maxHP: 100,
+    mp: 50,
+    maxMP: 50,
+    strength: 10,
+    defense: 5,
+    speed: 5,
+    x: 100,
+    y: 100,
+    width: 32,
+    height: 32,
+    direction: 'down', // 'up', 'down', 'left', 'right'
+    sprite: 'hero', // スプライト名
+    animation: 'idle', // 現在のアニメーション
+    items: [], // インベントリ
+    equipment: {
+        weapon: null,
+        armor: null,
+        accessory: null
+    },
+    skills: [] // 習得したスキル
+};
+```
+
+### キャラクター（NPC/敵）
+
+```javascript
+const character = {
+    id: 'villager1',
+    name: '村人A',
+    type: 'npc', // 'npc', 'enemy', 'ally'
+    x: 200,
+    y: 150,
+    width: 32,
+    height: 32,
+    direction: 'down',
+    sprite: 'villager',
+    animation: 'idle',
+    
+    // 戦闘用ステータス（敵/味方の場合）
+    hp: 50,
+    maxHP: 50,
+    mp: 0,
+    maxMP: 0,
+    strength: 5,
+    defense: 2,
+    speed: 3,
+    
+    // NPCの場合の会話
+    dialog: {
+        text: 'こんにちは、旅人さん！',
+        choices: [
+            {
+                text: '村の情報を教えて',
+                next: 'village_info'
+            },
+            {
+                text: '何もない',
+                next: null
+            }
+        ],
+        // 選択肢による分岐
+        branches: {
+            village_info: {
+                text: 'この村は平和な農村です。北に行くと森があります。',
+                next: null
+            }
+        }
+    },
+    
+    // AIの動作（NPC/敵の場合）
+    ai: function(character, deltaTime, gameState) {
+        // AIの行動ロジック
+    },
+    
+    // プレイヤーとの接触時の動作
+    onInteract: function(gameState) {
+        engine.showDialog(this.dialog);
+    }
+};
+```
+
+### アイテム
+
+```javascript
+const item = {
+    id: 'potion',
+    name: '回復薬',
+    type: 'item', // 'item', 'weapon', 'armor', 'key'
+    description: 'HPを30回復する',
+    icon: 'potion_icon',
+    effect: 'heal',
+    value: 30,
+    price: 50,
+    consumable: true,
+    
+    // アイテム使用時の効果
+    use: function(target) {
+        target.hp = Math.min(target.hp + this.value, target.maxHP);
+        return true;
+    }
+};
+```
+
+### スキル
+
+```javascript
+const skill = {
+    id: 'fireball',
+    name: 'ファイアボール',
+    type: 'magic', // 'magic', 'physical', 'healing'
+    description: '炎の玉を放ち、敵に15〜20のダメージを与える',
+    mpCost: 5,
+    targetType: 'single_enemy', // 'single_enemy', 'all_enemies', 'self', 'ally', 'all_allies'
+    power: 15,
+    variance: 5, // ダメージ変動幅
+    element: 'fire',
+    
+    // スキル使用時の効果
+    execute: function(user, target, battleSystem) {
+        if (user.mp < this.mpCost) {
+            return {
+                success: false,
+                message: 'MPが足りない！'
+            };
+        }
+        
+        user.mp -= this.mpCost;
+        
+        const baseDamage = this.power + Math.floor(Math.random() * this.variance);
+        const damage = Math.max(1, Math.floor(baseDamage * user.strength / target.defense));
+        
+        target.hp = Math.max(0, target.hp - damage);
+        
+        return {
+            success: true,
+            damage: damage,
+            critical: false,
+            targetHP: target.hp,
+            message: `${user.name}は${this.name}を唱えた！${target.name}に${damage}のダメージ！`
+        };
+    }
+};
+```
+
+このドキュメントは基本的なAPIの概要を説明したものです。さらに詳細な情報やカスタマイズ方法については、ソースコードを参照してください。
