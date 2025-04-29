@@ -150,32 +150,28 @@ function initializeCodeEditor() {
  * ゲームエンジンの初期化
  */
 function initializeGameEngine() {
-    try {
-        editor.state.gameEngine = new RPGEngine();
-        
-        // キャンバスを設定
-        const config = {
-            rendering: {
-                canvas: editor.elements.gameCanvas
-            }
-        };
-        
-        editor.state.gameEngine.initialize(config);
-        console.log('ゲームエンジンを初期化しました');
-        
-        // サンプルマップを読み込み
-        const sampleMap = createSampleMap();
-        editor.state.gameEngine.loadMap(sampleMap);
-        
-        // サンプルプレイヤーを作成
-        const samplePlayer = createSamplePlayer();
-        editor.state.gameEngine.gameState.player = samplePlayer;
-        
-        // ゲームループを開始
-        editor.state.gameEngine.startGameLoop();
-    } catch (error) {
-        console.error('ゲームエンジンの初期化に失敗しました:', error);
-    }
+    editor.state.gameEngine = new RPGEngine();
+    
+    // キャンバスを設定
+    const config = {
+        rendering: {
+            canvas: editor.elements.gameCanvas
+        }
+    };
+    
+    editor.state.gameEngine.initialize(config);
+    console.log('ゲームエンジンを初期化しました');
+    
+    // サンプルマップを読み込み
+    const sampleMap = createSampleMap();
+    editor.state.gameEngine.loadMap(sampleMap);
+    
+    // サンプルプレイヤーを作成
+    const samplePlayer = createSamplePlayer();
+    editor.state.gameEngine.gameState.player = samplePlayer;
+    
+    // ゲームループを開始
+    editor.state.gameEngine.startGameLoop();
 }
 
 /**
