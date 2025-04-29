@@ -168,39 +168,61 @@ export class AssetManager {
         this.loadAsset(type, asset);
         return asset;
     }
-
-    // 画像ファイルのインポート処理
-    importImageAsset(file, type) {
+    
+    // 画像アセットのインポート
+    importImageAsset(file) {
         return new Promise((resolve, reject) => {
-            if (!file) {
-                reject(new Error('ファイルが選択されていません。'));
-                return;
-            }
-            
-            // 画像ファイルのみを許可
-            if (!file.type.match('image.*')) {
-                reject(new Error('画像ファイルを選択してください。'));
+            if (!file || !file.type.startsWith('image/')) {
+                reject(new Error('有効な画像ファイルではありません'));
                 return;
             }
             
             const reader = new FileReader();
-            
-            reader.onload = (e) => {
+            reader.onload = (event) => {
                 const id = Date.now().toString();
                 const asset = {
                     id,
-                    name: file.name.replace(/\.[^/.]+$/, ""), // 拡張子を削除
-                    type,
-                    src: e.target.result
+                    name: file.name,
+                    type: 'image',
+                    dataUrl: event.target.result
                 };
                 
-                // アセットを追加
-                this.loadAsset(type === 'character' ? 'characters' : 'images', asset);
+                this.loadAsset('images', asset);
                 resolve(asset);
             };
             
-            reader.onerror = () => {
-                reject(new Error('ファイルの読み込みに失敗しました。'));
+            reader.onerror = (error) => {
+                reject(error);
+            };
+            
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    // サウンドアセットのインポート
+    importSoundAsset(file) {
+        return new Promise((resolve, reject) => {
+            if (!file || !file.type.startsWith('audio/')) {
+                reject(new Error('有効な音声ファイルではありません'));
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const id = Date.now().toString();
+                const asset = {
+                    id,
+                    name: file.name,
+                    type: 'sound',
+                    dataUrl: event.target.result
+                };
+                
+                this.loadAsset('sounds', asset);
+                resolve(asset);
+            };
+            
+            reader.onerror = (error) => {
+                reject(error);
             };
             
             reader.readAsDataURL(file);
@@ -208,103 +230,28 @@ export class AssetManager {
     }
     
     // アセットのエクスポート
-    exportAsset(type, assetId) {
+    exportAsset(type, assetId, format = 'json') {
         const asset = this.getAsset(type, assetId);
         if (!asset) return null;
         
-        // JSONに変換
-        const assetData = JSON.stringify(asset, null, 2);
-        
-        // Blobとしてエクスポート
-        const blob = new Blob([assetData], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        // ダウンロードリンクを作成
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${asset.name}.asset.json`;
-        a.click();
-        
-        URL.revokeObjectURL(url);
-        return asset;
+        switch (format) {
+            case 'json':
+                return JSON.stringify(asset, null, 2);
+            case 'dataUrl':
+                return asset.dataUrl || null;
+            default:
+                return null;
+        }
     }
     
-    // アセットパック（複数アセット）のエクスポート
-    exportAssetPack(assetIds = {}) {
+    // すべてのアセットのエクスポート
+    exportAllAssets(format = 'json') {
         const exportData = {};
         
-        // 各タイプのアセットを収集
-        for (const type in assetIds) {
-            exportData[type] = [];
-            for (const id of assetIds[type]) {
-                const asset = this.getAsset(type, id);
-                if (asset) {
-                    exportData[type].push(asset);
-                }
-            }
+        for (const type in this.assets) {
+            exportData[type] = this.assets[type];
         }
         
-        // JSONに変換
-        const packData = JSON.stringify(exportData, null, 2);
-        
-        // Blobとしてエクスポート
-        const blob = new Blob([packData], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        // ダウンロードリンクを作成
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `asset-pack-${Date.now()}.json`;
-        a.click();
-        
-        URL.revokeObjectURL(url);
-        return exportData;
-    }
-    
-    // アセットパックのインポート
-    importAssetPack(file) {
-        return new Promise((resolve, reject) => {
-            if (!file) {
-                reject(new Error('ファイルが選択されていません。'));
-                return;
-            }
-            
-            const reader = new FileReader();
-            
-            reader.onload = (e) => {
-                try {
-                    const packData = JSON.parse(e.target.result);
-                    const importedAssets = {
-                        characters: [],
-                        maps: [],
-                        items: [],
-                        sounds: [],
-                        images: []
-                    };
-                    
-                    // 各タイプのアセットをインポート
-                    for (const type in packData) {
-                        if (this.assets[type]) {
-                            for (const asset of packData[type]) {
-                                // IDの競合を避けるために新しいIDを生成
-                                const newAsset = { ...asset, id: Date.now() + Math.random().toString(36).substr(2, 9) };
-                                this.loadAsset(type, newAsset);
-                                importedAssets[type].push(newAsset);
-                            }
-                        }
-                    }
-                    
-                    resolve(importedAssets);
-                } catch (error) {
-                    reject(new Error('アセットパックの解析に失敗しました: ' + error.message));
-                }
-            };
-            
-            reader.onerror = () => {
-                reject(new Error('ファイルの読み込みに失敗しました。'));
-            };
-            
-            reader.readAsText(file);
-        });
+        return JSON.stringify(exportData, null, 2);
     }
 }
