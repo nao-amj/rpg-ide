@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG開発環境</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>RPG開発環境</h1>
+            <div class="toolbar">
+                <button id="new-project">新規プロジェクト</button>
+                <button id="open-project">プロジェクトを開く</button>
+                <button id="save-project">保存</button>
+                <button id="export-project">エクスポート</button>
+                <button id="run-game">ゲーム実行</button>
+            </div>
+        </header>
+        <main>
+            <div class="sidebar">
+                <div class="project-explorer">
+                    <h3>プロジェクトエクスプローラ</h3>
+                    <ul id="project-tree">
+                        <!-- プロジェクトファイルがここに表示されます -->
+                    </ul>
+                </div>
+                <div class="assets-library">
+                    <h3>アセットライブラリ</h3>
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="characters">キャラクター</button>
+                        <button class="tab-btn" data-tab="maps">マップ</button>
+                        <button class="tab-btn" data-tab="items">アイテム</button>
+                    </div>
+                    <div class="tab-content" id="characters">
+                        <!-- キャラクターアセットがここに表示されます -->
+                    </div>
+                    <div class="tab-content hidden" id="maps">
+                        <!-- マップアセットがここに表示されます -->
+                    </div>
+                    <div class="tab-content hidden" id="items">
+                        <!-- アイテムアセットがここに表示されます -->
+                    </div>
+                </div>
+            </div>
+            <div class="editor-area">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="visual-editor">ビジュアルエディタ</button>
+                    <button class="tab-btn" data-tab="script-editor">スクリプトエディタ</button>
+                    <button class="tab-btn" data-tab="map-editor">マップエディタ</button>
+                </div>
+                <div class="tab-content" id="visual-editor">
+                    <div class="canvas-container">
+                        <canvas id="game-canvas" width="800" height="600"></canvas>
+                    </div>
+                    <div class="property-panel">
+                        <h3>プロパティ</h3>
+                        <div id="properties-container">
+                            <!-- 選択されたオブジェクトのプロパティがここに表示されます -->
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-content hidden" id="script-editor">
+                    <div id="code-editor"></div>
+                </div>
+                <div class="tab-content hidden" id="map-editor">
+                    <div class="map-tools">
+                        <button id="draw-tool">描画</button>
+                        <button id="erase-tool">消去</button>
+                        <button id="select-tool">選択</button>
+                        <select id="tile-set">
+                            <option value="basic">基本タイル</option>
+                            <option value="dungeon">ダンジョン</option>
+                            <option value="town">町</option>
+                        </select>
+                    </div>
+                    <div class="map-canvas-container">
+                        <canvas id="map-canvas" width="800" height="600"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <footer>
+            <div class="status-bar">
+                <span id="status-message">準備完了</span>
+                <span id="cursor-position">X: 0, Y: 0</span>
+            </div>
+        </footer>
+    </div>
+    
+    <script src="js/lib/monaco-editor.min.js"></script>
+    <script src="js/lib/pixi.min.js"></script>
+    <script src="js/editor/main.js" type="module"></script>
+    <script src="js/engine/rpg-engine.js" type="module"></script>
+</body>
+</html>
